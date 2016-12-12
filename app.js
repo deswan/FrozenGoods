@@ -27,10 +27,10 @@ app.get('/', routes.home);
 app.post('/login',routes.login);
 app.post('/signup', routes.signup);	//post:{name,password}
 app.get('/good_information', routes.good_information);
-app.post('/join_cart',routes.join_cart);
-app.get('/show_cart',routes.show_cart);
-app.post('/buy',routes.buy);
-app.post('/create_order',routes.create_order);
+app.post('/join_cart',routes.join_cart);	//post加入商品到购物车
+app.get('/show_cart',routes.show_cart);	//显示购物车
+app.get('/buy',routes.buy);	//显示购买页面
+app.post('/buy',routes.create_order);
 app.post('/add_address',routes.add_address);
 app.get('/show_shop',routes.show_shop);
 app.get('/error',function(req,res){

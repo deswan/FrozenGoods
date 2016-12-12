@@ -84,6 +84,7 @@ exports.signup = function (req, res,next) {
 			}
 			return res.json({code:code});
 		}else{
+			req.session.uid=result.id;
 			return res.json(result);
 		}
 	});
@@ -167,9 +168,30 @@ exports.good_information = function(req,res){
 };
 
 //添加评论
-//post:{uid,gid,text}
+//post:{gid,text}
 exports.add_comments = function (req,res) {
-	var uid = req.query.uid;
+	var uid = req.session.uid;
+	db.query('select * from users where ? ',{id:uid}, function(err, rows,field) {
+		if (err){
+			code=-1;
+		};
+		if(!rows.length){
+			code=1;	//用户名不存在
+		}else{
+			code=0;
+			req.session.uid=rows[0].id;
+		}
+		if(code){
+			return res.json({code:code});
+		}else{
+			return res.json({code:code,
+				uid:rows[0].id,
+				name:rows[0].name,
+				password:rows[0].password,
+				token:rows[0].token});	//CODE==0则token有值
+		}
+
+	});
 	if(!isFinite(uid)) res.redirect('/error');
 
 }
@@ -214,10 +236,10 @@ exports.join_cart = function (req,res) {
 	})
 }
 //显示购物车
-//get:{uid:}
+//get
 //return {price,list:[{gid,good_name,pid,mono_price,shop_name,amount,sum_price}]}
 exports.show_cart = function (req,res) {
-	var uid = req.query.uid;
+	var uid = req.session.uid;
 	if (!isFinite(uid)) res.redirect('/error');
 	var queryStr = 'select goods.id as gid,goods.name as good_name,goods.picture_id as pid,goods.price as mono_price,shops.name as shop_name,amount,amount*goods.price as sum_price ' +
 		'from trolley,goods,shops where trolley.user_id= ? AND trolley.good_id=goods.id AND goods.shop_id=shops.id';
@@ -233,19 +255,20 @@ exports.show_cart = function (req,res) {
 
 //购买页面
 
-//在商品页面点击购买则{cart:0,uid:,gid,amount}
-//在购物车点击购买则{cart:1,uid:}
+//在商品页面点击购买则{cart:0,gid,amount}
+//在购物车点击购买则{cart:1}
 //cart参数应该由安卓传
 //post
 //此页面中可以编辑地址
 //return {address:{aid,name,phone,addr_inform},good:{price,list:{gid,good_name,pid,mono_price,shop_name,amount,sum_price}}}
 exports.buy= function (req,res) {
-	var ifCart=req.body.cart;
+	var uid = req.session.uid;
+	var ifCart=req.query.cart;
 	if(ifCart==null) {return res.redirect('/error')}
 	else if(ifCart==0){	//非购物车
-		var q={gid: req.body.gid, uid: req.body.uid, amount: req.body.amount};
+		var q={gid: req.query.gid, uid: uid, amount: req.query.amount};
 	}else {
-		var q = {uid:req.body.uid};
+		var q = {uid:uid};
 	}
 	for(var key in q){
 		if(!isFinite(q[key])) return res.redirect('/error');
@@ -298,16 +321,17 @@ exports.buy= function (req,res) {
 };
 
 //post确认订单，响应支付页面
-//{cart:0,uid,gid,amount,aid,note}
-//{cart:1,uid,aid,note}
+//{cart:0,gid,amount,aid,note}
+//{cart:1,aid,note}
 //return {oid:}
 exports.create_order = function (req,res) {
+	var uid = req.session.uid;
 	var ifCart=req.body.cart;
 	if(ifCart==null) {return res.redirect('/error')}
 	else if(ifCart==0){	//请求体传来的是string类型而不是int，因此不能用===来判断
-		var q={gid: req.body.gid, uid: req.body.uid, amount: req.body.amount,aid:req.body.aid,note:req.body.note};
+		var q={gid: req.body.gid, uid: uid, amount: req.body.amount,aid:req.body.aid,note:req.body.note};
 	}else {
-		var q = {uid: req.body.uid,aid:req.body.aid,note:req.body.note};
+		var q = {uid: uid,aid:req.body.aid,note:req.body.note};
 	}
 	for(var key in q){
 		if(!isFinite(q[key])){
@@ -350,7 +374,8 @@ exports.create_order = function (req,res) {
 //post:{uid,name,phone,address}（三项来自用户输入）
 //return {aid:}
 exports.add_address = function (req,res) {
-	var q={uid: req.body.uid, name: req.body.name, phone: req.body.phone,address:req.body.address};
+	var uid = req.session.uid;
+	var q={uid: uid, name: req.body.name, phone: req.body.phone,address:req.body.address};
 	if(!isFinite(q.uid)) return res.redirect('/error');
 	for(var key in q){
 		if(!q[key]) return res.json({code:1});
@@ -380,7 +405,8 @@ exports.show_shop = function (req,res) {
 //get {uid,type}
 //return
 exports.show_orders = function (req,res) {
-	var q ={uid:req.query.uid,type:req.query.type};
+	var uid = req.session.uid;
+	var q ={uid:uid,type:req.query.type};
 	for(var key in q){
 		if(!q[key]) return res.redirect('/error');
 	}
