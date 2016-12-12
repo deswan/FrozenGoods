@@ -26,13 +26,19 @@ app.use(express.static('public'));
 app.get('/', routes.home);
 app.post('/login',routes.login);
 app.post('/signup', routes.signup);	//post:{name,password}
+
+app.use('/',function (req,res) {
+	return res.send("1111");
+})
+
 app.get('/good_information', routes.good_information);
-app.post('/join_cart',routes.join_cart);	//post加入商品到购物车
-app.get('/show_cart',routes.show_cart);	//显示购物车
+app.post('/join_cart',routes.join_cart);	//加入商品到购物车行为
+app.get('/show_cart',routes.show_cart);	//显示购物车页面
 app.get('/buy',routes.buy);	//显示购买页面
-app.post('/buy',routes.create_order);
-app.post('/add_address',routes.add_address);
-app.get('/show_shop',routes.show_shop);
+app.post('/buy',routes.create_order);	//购买行为
+app.post('/add_address',routes.add_address);	//添加地址行为
+app.get('/show_shop',routes.show_shop);		//显示商店页面
+app.get('/show_order',routes.show_orders);		//显示订单页面
 app.get('/error',function(req,res){
 	res.sendStatus(404);
 })

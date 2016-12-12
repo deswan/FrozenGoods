@@ -192,9 +192,9 @@ exports.add_comments = function (req,res) {
 		}
 
 	});
-	if(!isFinite(uid)) res.redirect('/error');
 
-}
+
+};
 
 //商品加入购物车
 //post{gid:,uid:,amount:}
@@ -202,7 +202,8 @@ exports.add_comments = function (req,res) {
 //记得加外键约束！
 //return {code:0}即成功
 exports.join_cart = function (req,res) {
-	var q = {gid:req.body.gid,uid:req.body.uid,amount:req.body.amount};
+	var uid = req.session.uid;
+	var q = {gid:req.body.gid,uid:uid,amount:req.body.amount};
 	for(var key in q){
 		if(!isFinite(q[key])) return res.redirect('/error');
 	}
@@ -371,7 +372,7 @@ exports.create_order = function (req,res) {
 };
 
 //添加地址
-//post:{uid,name,phone,address}（三项来自用户输入）
+//post:{name,phone,address}（三项来自用户输入）
 //return {aid:}
 exports.add_address = function (req,res) {
 	var uid = req.session.uid;
@@ -402,14 +403,79 @@ exports.show_shop = function (req,res) {
 }
 
 //显示订单页面
-//get {uid,type}
+//get {type}
 //return
+//[{id:order_id,time:,goods:[{id:good_id,amount:,inform:{picture_id:,name:,price:}}]}]
+//层次：[单个订单实体]->多[单种商品订阅情况实体]->单个商品详情实体
 exports.show_orders = function (req,res) {
-	var uid = req.session.uid;
-	var q ={uid:uid,type:req.query.type};
+	//var uid = req.session.uid;
+	var q ={uid:61,type:req.query.type};
 	for(var key in q){
 		if(!q[key]) return res.redirect('/error');
 	}
+	var types = [0,1,2];
+	// async.map(types,function (type,cb) {
+		async.waterfall([
+			function(cb){
+				db.query('select id,time from orders where user_id=? and type=?',[q.uid,0],function (err,result) {
+					if(err){
+						throw err;
+					}
+					cb(null,result);	//[{id:1,time:aaa}],{id:2,time:bbb}]
+				})
+			},
+			function(orders,cb){
+				var myorders = orders;
+
+				//处理每个order对象
+				async.map(myorders,function (order,cb) {
+					db.query('select good_id as id,amount from orders_goods where order_id=?',[order.id],function (err,result) {
+						if(err){
+							throw err;
+						}
+						order.goods = result;
+
+						//{id: 3,time: 2016-11-29T15:05:20.000Z,goods: [  { id: 1, amount: 3 } ] }
+
+						//MAP2:处理每个goods对象
+						async.map(order.goods,function (order_good,cb) {	//order_good=={id:1,amount:3}
+							db.query('select picture_id,name,price from goods where id=?',[order_good.id],function (err,result) {
+								if(err){
+									cb(err)
+								}
+								order_good.inform = result[0];
+								order_good.price = order_good.amount*result[0].price;	//单种商品价格
+								cb(null,order_good);
+							})
+						},function (err,order_good) {
+							if(err) {
+								throw err;
+							}
+							cb(null,order);
+						})
+					})
+				},function (err,resul) {//map方法自动聚合每个对象成为数组
+					if(err){
+						cb(err);
+					}
+					var p;	//单个订单总价格
+					for(var i=0;i<resul.length;i++){
+						p=0;
+						for(var j=0;j<resul[i].goods.length;j++){
+							p+=resul[i].goods[j].price;
+						}
+						resul[i].price=p;
+					}
+					cb(null,resul);
+				})
+			}
+		],function(err,result){
+			if(err){
+				throw err;
+			}else{
+				return res.json(result);
+			}
+		});
 
 }
 
